@@ -4,7 +4,8 @@ import {
     createPost,
     getAllPosts,
     getPost,
-    deletePost
+    deletePost,
+    keepAwake
 } from "../controllers/postController.js";
 
 const router = express.Router();
