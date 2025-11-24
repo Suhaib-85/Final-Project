@@ -62,6 +62,15 @@ export const getPost = async (req, res) => {
     }
 };
 
+export const keepAwake = async (req, res) => {
+    try {
+        res.json({ "message": "Server is awake." });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: `Server error\n${err.message}` });
+    }
+};
+
 export const deletePost = async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
