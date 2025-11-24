@@ -9,7 +9,7 @@ import {
 
 const router = express.Router();
 router.post("/", upload.single("image"), createPost);
-//router.get("/", keepAwake);
+router.get("/awake", keepAwake);
 router.get("/", getAllPosts);
 router.get("/:id", getPost);
 router.delete("/:id", deletePost);
