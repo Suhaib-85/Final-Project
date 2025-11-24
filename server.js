@@ -18,7 +18,7 @@ app.use(helmet());
 
 // CORS — restrict to your frontend
 app.use(cors({
-    origin: "https://your-frontend.com", // replace with your frontend URL
+    origin: "*", // replace with your frontend URL
     methods: ["GET","POST","PUT","DELETE","PATCH"],
     allowedHeaders: ["Content-Type","Authorization"]
 }));
