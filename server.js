@@ -6,30 +6,28 @@ import cors from "cors";
 import sanitizeInputs from "./middleware/sanitize.js";
 import connectDB from "./config/db.js";
 import postRoutes from "./routes/postRoutes.js";
+import { swaggerDocs } from "./utils/swagger.js";  // <-- named import
 
-// Load environment variables
 dotenv.config();
 
-// Initialize Express
-const app = express();
+export const app = express();
 
 // Security headers
 app.use(helmet());
 
-// CORS — restrict to your frontend
+// CORS
 app.use(cors({
-    origin: "*", // replace with your frontend URL
-    methods: ["GET","POST","PUT","DELETE","PATCH"],
-    allowedHeaders: ["Content-Type","Authorization"]
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 // Rate limiting
-const limiter = rateLimit({
-    windowMs: 2 * 60 * 1000, // 2 minutes
+app.use(rateLimit({
+    windowMs: 2 * 60 * 1000,
     max: 100,
     message: "Too many requests, try again after a couple of minutes."
-});
-app.use(limiter);
+}));
 
 // Body parsers
 app.use(express.json());
@@ -38,14 +36,17 @@ app.use(express.urlencoded({ extended: true }));
 // Input sanitization
 app.use(sanitizeInputs);
 
-// Connect to MongoDB Atlas
+// Connect to DB
 connectDB();
 
 // Routes
 app.use("/posts", postRoutes);
 
+// Swagger docs
+swaggerDocs(app);
+
 // Start server
-const PORT = process.env.PORT || 3000;
+export const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
