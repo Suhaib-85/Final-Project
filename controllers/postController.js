@@ -1,6 +1,8 @@
 import Post from "../models/post.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import Comment from "../models/comment.js";
+import Reaction from "../models/reaction.js";
 
 export const createPost = async (req, res) => {
     try {
@@ -33,32 +35,158 @@ export const createPost = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
     try {
-        let page = parseInt(req.query.page) || 1;
-        let limit = 10;
-        let skip = (page - 1) * limit;
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = 10;
+        const skip = (page - 1) * limit;
 
-        const posts = await Post.find().sort({ createdAt: -1 }).skip(skip).limit(limit);
+        // aggregate posts with counts using $lookup + $group
+        const pipeline = [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            // lookup comment counts
+            {
+                $lookup: {
+                    from: "comments",
+                    let: { postId: "$_id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$postId", "$$postId"] } } },
+                        { $count: "count" }
+                    ],
+                    as: "commentCount"
+                }
+            },
+            // lookup reaction counts grouped by reaction
+            {
+                $lookup: {
+                    from: "reactions",
+                    let: { postId: "$_id" },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ["$postId", "$$postId"] } } },
+                        { $group: { _id: "$reaction", count: { $sum: 1 } } }
+                    ],
+                    as: "reactionCounts"
+                }
+            },
+            // reshape counts
+            {
+                $addFields: {
+                    commentCount: { $arrayElemAt: ["$commentCount.count", 0] },
+                    likes: {
+                        $reduce: {
+                            input: "$reactionCounts",
+                            initialValue: 0,
+                            in: {
+                                $cond: [
+                                    { $eq: ["$$this._id", "like"] },
+                                    { $add: ["$$value", "$$this.count"] },
+                                    "$$value"
+                                ]
+                            }
+                        }
+                    },
+                    dislikes: {
+                        $reduce: {
+                            input: "$reactionCounts",
+                            initialValue: 0,
+                            in: {
+                                $cond: [
+                                    { $eq: ["$$this._id", "dislike"] },
+                                    { $add: ["$$value", "$$this.count"] },
+                                    "$$value"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            // ensure numbers are present
+            {
+                $addFields: {
+                    commentCount: { $ifNull: ["$commentCount", 0] },
+                    likes: { $ifNull: ["$likes", 0] },
+                    dislikes: { $ifNull: ["$dislikes", 0] }
+                }
+            }
+        ];
+
+        const posts = await Post.aggregate(pipeline);
+
+        // total posts count for pagination meta
+        const total = await Post.countDocuments();
 
         res.json({
             page,
-            count: posts.length,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
             posts
         });
-
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: `Server error\n${err.message}` });
+        console.error("getAllPosts:", err);
+        res.status(500).json({ error: err.message });
     }
 };
 
 export const getPost = async (req, res) => {
     try {
-        const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ error: "Post not found" });
-        res.json(post);
+        const postId = req.params.id;
+
+        const pipeline = [
+            { $match: { _id: Post.Types.ObjectId ? Post.Types.ObjectId(postId) : postId } },
+            // lookup comment count
+            {
+                $lookup: {
+                    from: "comments",
+                    let: { postId: "$_id" },
+                    pipeline: [{ $match: { $expr: { $eq: ["$postId", "$$postId"] } } }, { $count: "count" }],
+                    as: "commentCount"
+                }
+            },
+            // lookup reaction counts grouped
+            {
+                $lookup: {
+                    from: "reactions",
+                    let: { postId: "$_id" },
+                    pipeline: [{ $match: { $expr: { $eq: ["$postId", "$$postId"] } } }, { $group: { _id: "$reaction", count: { $sum: 1 } } }],
+                    as: "reactionCounts"
+                }
+            },
+            {
+                $addFields: {
+                    commentCount: { $arrayElemAt: ["$commentCount.count", 0] },
+                    likes: {
+                        $reduce: {
+                            input: "$reactionCounts",
+                            initialValue: 0,
+                            in: { $cond: [{ $eq: ["$$this._id", "like"] }, { $add: ["$$value", "$$this.count"] }, "$$value"] }
+                        }
+                    },
+                    dislikes: {
+                        $reduce: {
+                            input: "$reactionCounts",
+                            initialValue: 0,
+                            in: { $cond: [{ $eq: ["$$this._id", "dislike"] }, { $add: ["$$value", "$$this.count"] }, "$$value"] }
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    commentCount: { $ifNull: ["$commentCount", 0] },
+                    likes: { $ifNull: ["$likes", 0] },
+                    dislikes: { $ifNull: ["$dislikes", 0] }
+                }
+            }
+        ];
+
+        const results = await Post.aggregate(pipeline);
+        if (!results.length) return res.status(404).json({ error: "Post not found" });
+
+        res.json(results[0]);
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: `Server error\n${err.message}` });
+        console.error("getPost:", err);
+        res.status(500).json({ error: err.message });
     }
 };
 
