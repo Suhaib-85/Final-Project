@@ -7,52 +7,78 @@ export const toggleReaction = async (req, res) => {
         const { postId } = req.params;
         const { userId, reaction } = req.body;
 
-        if (!userId || !reaction) return res.status(400).json({ error: "userId and reaction are required" });
-        if (!["like", "dislike"].includes(reaction)) return res.status(400).json({ error: "Invalid reaction" });
+        // Validate inputs
+        if (!userId || !reaction) {
+            return res.status(400).json({ error: "userId and reaction are required" });
+        }
+        if (!["like", "dislike"].includes(reaction)) {
+            return res.status(400).json({ error: "Invalid reaction" });
+        }
 
+        // Ensure post exists
         const postExists = await Post.exists({ _id: postId });
-        if (!postExists) return res.status(404).json({ error: "Post not found" });
+        if (!postExists) {
+            return res.status(404).json({ error: "Post not found" });
+        }
 
-        // find existing reaction
+        // Find existing reaction by this user on this post
         const existing = await Reaction.findOne({ postId, userId });
 
+        // CASE 1 — No previous reaction → create one
         if (!existing) {
-            // create new reaction
             const created = await Reaction.create({ postId, userId, reaction });
-            return res.status(201).json({ message: "Reaction added", reaction: created });
+            return res.status(201).json({
+                message: "Reaction added",
+                reaction: created
+            });
         }
 
+        // CASE 2 — User clicked the same reaction again → remove (toggle off)
         if (existing.reaction === reaction) {
-            // same reaction -> remove (toggle)
             await existing.deleteOne();
-            return res.json({ message: "Reaction removed" });
+            return res.json({
+                message: "Reaction removed"
+            });
         }
 
-        // different reaction -> update
+        // CASE 3 — User switches reaction (like → dislike, or dislike → like)
         existing.reaction = reaction;
         await existing.save();
-        return res.json({ message: "Reaction updated", reaction: existing });
+
+        return res.json({
+            message: "Reaction updated",
+            reaction: existing
+        });
+
     } catch (err) {
         console.error("toggleReaction:", err);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({
+            error: "Internal server error",
+            details: err.message
+        });
     }
 };
 
 export const getReactionCounts = async (req, res) => {
     try {
         const { postId } = req.params;
+
         const [likes, dislikes] = await Promise.all([
             Reaction.countDocuments({ postId, reaction: "like" }),
-            Reaction.countDocuments({ postId, reaction: "dislike" }),
+            Reaction.countDocuments({ postId, reaction: "dislike" })
         ]);
 
-        res.json({
+        return res.json({
             likes,
             dislikes,
-            total: likes + dislikes,
+            total: likes + dislikes
         });
+
     } catch (err) {
         console.error("getReactionCounts:", err);
-        res.status(500).json({ error: err.message });
+        return res.status(500).json({
+            error: "Internal server error",
+            details: err.message
+        });
     }
 };
