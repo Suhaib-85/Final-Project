@@ -1,8 +1,8 @@
+//postController.js
 import Post from "../models/post.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
-import Comment from "../models/comment.js";
-import Reaction from "../models/reaction.js";
+import mongoose from "mongoose";
 
 export const createPost = async (req, res) => {
     try {
@@ -16,15 +16,18 @@ export const createPost = async (req, res) => {
 
         // Create post in MongoDB
         const post = await Post.create({
-            userId: req.body.userId,
+            userId: req.user.id,
             title: req.body.title,
             body: req.body.body,
             imageUrl: uploaded.secure_url,
             cloudinaryId: uploaded.public_id,
         });
 
-        // Delete local temp file
-        fs.unlinkSync(req.file.path);
+        // Delete local temp file safely (async)
+        fs.promises.unlink(req.file.path).catch(err => {
+            console.error("Failed to delete local temp file:", err.message);
+            // no need to stop execution; continue
+        });
 
         res.status(201).json({ message: "Post created", post });
     } catch (err) {
@@ -133,7 +136,7 @@ export const getPost = async (req, res) => {
         const postId = req.params.id;
 
         const pipeline = [
-            { $match: { _id: Post.Types.ObjectId ? Post.Types.ObjectId(postId) : postId } },
+            { $match: { _id: mongoose.Types.ObjectId(postId) } },
             // lookup comment count
             {
                 $lookup: {
@@ -202,12 +205,28 @@ export const keepAwake = async (req, res) => {
 export const deletePost = async (req, res) => {
     try {
         const post = await Post.findById(req.params.id);
-        if (!post) return res.status(404).json({ error: "Not found" });
-        await cloudinary.uploader.destroy(post.cloudinaryId);
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        // Only the owner can delete
+        if (post.userId.toString() !== req.user.id) {
+            return res.status(403).json({ error: "Not authorized to delete this post" });
+        }
+
+        // Delete image from Cloudinary
+        try {
+            if (post.cloudinaryId) {
+                await cloudinary.uploader.destroy(post.cloudinaryId);
+            }
+        } catch (cloudErr) {
+            console.error("Cloudinary deletion error:", cloudErr.message);
+            // continue to delete post in DB even if Cloudinary fails
+        }
+
         await post.deleteOne();
         res.json({ message: "Post deleted" });
+
     } catch (err) {
-        console.error(err.message);
+        console.error("deletePost:", err.message);
         res.status(500).json({ error: `Server error\n${err.message}` });
     }
-}
+};

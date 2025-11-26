@@ -1,11 +1,13 @@
+//server.js
 import express from "express";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import cors from "cors";
 import sanitizeInputs from "./middleware/sanitize.js";
 import connectDB from "./config/db.js";
 import postRoutes from "./routes/postRoutes.js";
+import commentRoutes from "./routes/commentRoutes.js";
+import reactionRoutes from "./routes/reactionRoutes.js";
 import { swaggerDocs } from "./utils/swagger.js";  // <-- named import
 
 dotenv.config();
@@ -22,13 +24,6 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// Rate limiting
-app.use(rateLimit({
-    windowMs: 2 * 60 * 1000,
-    max: 100,
-    message: "Too many requests, try again after a couple of minutes."
-}));
-
 // Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -41,6 +36,8 @@ connectDB();
 
 // Routes
 app.use("/posts", postRoutes);
+app.use("/comments", commentRoutes);
+app.use("/reactions", reactionRoutes);
 
 // Swagger docs
 swaggerDocs(app);

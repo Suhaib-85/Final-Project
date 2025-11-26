@@ -1,7 +1,8 @@
+// postRoutes.js
+import { writeLimit, readLimit } from "../middleware/limiter.js";
 import express from "express";
 import upload from "../middleware/upload.js";
-import commentRoutes from "./commentRoutes.js";
-import reactionRoutes from "./reactionRoutes.js";
+import { protect } from "../middleware/auth.js";
 import {
     createPost,
     getAllPosts,
@@ -19,6 +20,8 @@ const router = express.Router();
  *     summary: Create a new post
  *     tags:
  *       - Posts
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -26,24 +29,23 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             properties:
- *               userId:
- *                 type: string
  *               title:
  *                 type: string
+ *                 description: Title of the post
  *               body:
  *                 type: string
+ *                 description: Content of the post
  *               image:
  *                 type: string
  *                 format: binary
+ *                 description: Image file to upload
  *     responses:
  *       201:
  *         description: Post created
  *       400:
- *         description: Missing required fields
+ *         description: Missing required fields or image
  */
-
-router.post("/", upload.single("image"), createPost);
-router.get("/awake", keepAwake);
+router.post("/", writeLimit, protect, upload.single("image"), createPost);
 
 /**
  * @openapi
@@ -61,10 +63,9 @@ router.get("/awake", keepAwake);
  *         description: Page number for pagination
  *     responses:
  *       200:
- *         description: List of posts with pagination
+ *         description: List of posts with pagination info
  */
-
-router.get("/", getAllPosts);
+router.get("/", readLimit, getAllPosts);
 
 /**
  * @openapi
@@ -86,8 +87,7 @@ router.get("/", getAllPosts);
  *       404:
  *         description: Post not found
  */
-
-router.get("/:id", getPost);
+router.get("/:id", readLimit, getPost);
 
 /**
  * @openapi
@@ -96,6 +96,8 @@ router.get("/:id", getPost);
  *     summary: Delete a post by its ID
  *     tags:
  *       - Posts
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -105,14 +107,23 @@ router.get("/:id", getPost);
  *         description: MongoDB _id of the post
  *     responses:
  *       200:
- *         description: Post deleted
+ *         description: Post deleted successfully
  *       404:
  *         description: Post not found
  */
+router.delete("/:id", writeLimit, protect, deletePost);
 
-router.delete("/:id", deletePost);
-
-router.use("/", commentRoutes);
-router.use("/", reactionRoutes);
+/**
+ * @openapi
+ * /posts/awake:
+ *   get:
+ *     summary: Keep the server awake (health check)
+ *     tags:
+ *       - Posts
+ *     responses:
+ *       200:
+ *         description: Server awake confirmation
+ */
+router.get("/awake", keepAwake);
 
 export default router;

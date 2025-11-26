@@ -1,15 +1,17 @@
-// controllers/reactionController.js
+// reactionController.js
 import Reaction from "../models/reaction.js";
 import Post from "../models/post.js";
 
+// Toggle or add reaction
 export const toggleReaction = async (req, res) => {
     try {
         const { postId } = req.params;
-        const { userId, reaction } = req.body;
+        const { reaction } = req.body;
+        const userId = req.user.id;
 
-        // Validate inputs
-        if (!userId || !reaction) {
-            return res.status(400).json({ error: "userId and reaction are required" });
+        // Validate reaction
+        if (!reaction) {
+            return res.status(400).json({ error: "Reaction is required" });
         }
         if (!["like", "dislike"].includes(reaction)) {
             return res.status(400).json({ error: "Invalid reaction" });
@@ -21,32 +23,35 @@ export const toggleReaction = async (req, res) => {
             return res.status(404).json({ error: "Post not found" });
         }
 
-        // Find existing reaction by this user on this post
+        // Find existing reaction by this user
         const existing = await Reaction.findOne({ postId, userId });
 
         // CASE 1 — No previous reaction → create one
         if (!existing) {
             const created = await Reaction.create({ postId, userId, reaction });
-            return res.status(201).json({
+            return res.status(200).json({
                 message: "Reaction added",
+                action: "added",
                 reaction: created
             });
         }
 
-        // CASE 2 — User clicked the same reaction again → remove (toggle off)
+        // CASE 2 — Same reaction clicked again → remove
         if (existing.reaction === reaction) {
             await existing.deleteOne();
-            return res.json({
-                message: "Reaction removed"
+            return res.status(200).json({
+                message: "Reaction removed",
+                action: "removed"
             });
         }
 
-        // CASE 3 — User switches reaction (like → dislike, or dislike → like)
+        // CASE 3 — Switch reaction
         existing.reaction = reaction;
         await existing.save();
 
-        return res.json({
+        return res.status(200).json({
             message: "Reaction updated",
+            action: "updated",
             reaction: existing
         });
 

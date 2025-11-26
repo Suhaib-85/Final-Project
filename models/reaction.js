@@ -1,4 +1,4 @@
-// models/Reaction.js
+// reaction.js
 import mongoose from "mongoose";
 
 const ReactionSchema = new mongoose.Schema(

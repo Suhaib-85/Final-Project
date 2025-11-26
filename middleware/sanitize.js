@@ -1,3 +1,4 @@
+// sanitize.js
 import xss from "xss";
 
 // Remove all HTML tags
