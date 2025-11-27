@@ -136,7 +136,7 @@ export const getPost = async (req, res) => {
         const postId = req.params.id;
 
         const pipeline = [
-            { $match: { _id: mongoose.Types.ObjectId(postId) } },
+            { $match: { _id: new mongoose.Types.ObjectId(postId) } },
             // lookup comment count
             {
                 $lookup: {
