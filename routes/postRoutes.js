@@ -15,6 +15,19 @@ const router = express.Router();
 
 /**
  * @openapi
+ * /posts/awake:
+ *   get:
+ *     summary: Keep the server awake (health check)
+ *     tags:
+ *       - Posts
+ *     responses:
+ *       200:
+ *         description: Server awake confirmation
+ */
+router.get("/awake", keepAwake);
+
+/**
+ * @openapi
  * /posts:
  *   post:
  *     summary: Create a new post
@@ -112,18 +125,5 @@ router.get("/:id", readLimit, getPost);
  *         description: Post not found
  */
 router.delete("/:id", writeLimit, protect, deletePost);
-
-/**
- * @openapi
- * /posts/awake:
- *   get:
- *     summary: Keep the server awake (health check)
- *     tags:
- *       - Posts
- *     responses:
- *       200:
- *         description: Server awake confirmation
- */
-router.get("/awake", keepAwake);
 
 export default router;
