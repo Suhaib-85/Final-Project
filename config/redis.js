@@ -1,14 +1,8 @@
-// config/redis.js
 import Redis from 'ioredis';
 import config from './index.js';
 
-const redisClient = new Redis({
-    host: config.REDIS_HOST,
-    port: config.REDIS_PORT,
-    password: config.REDIS_PASSWORD,
-    tls: {
-        rejectUnauthorized: false
-    },
+const redisClient = new Redis(config.REDIS_URL, {
+    tls: { rejectUnauthorized: false }, // required for Upstash TLS
     maxRetriesPerRequest: 2
 });
 
