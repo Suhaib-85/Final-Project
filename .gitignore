@@ -1,5 +1,46 @@
-# .gitignore
-.env
+## 💡 Node.js Project Ignores
+# Dependencies
+/node_modules
+/dist
+/build
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Runtime
+/tmp
+/pids
+*.pid
+*.seed
+*.pid.lock
+
+## 🔑 Environment & Credentials (CRITICAL for Security)
+# Render/Upstash/MongoDB Atlas connection strings and JWT secrets
+.env 
+.env.local
 .env.*
 
-/node_modules
+# Saved credentials/config files (if using a specific tooling)
+.credentials/
+
+## 🖥️ OS and Editor Artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+
+## 🛠️ Tooling and Caching Ignores
+# Nodemon history (if used)
+.nodemon-rerun
+.nodemonlog
+
+# npm lock file (keep this if you want exact version control, but often ignored)
+# If you want everyone to install the exact same version, keep package-lock.json.
+# If you prefer fresh installs, uncomment the next line.
+# package-lock.json
+
+# Test/Coverage reports
+/coverage
+/.nyc_output
