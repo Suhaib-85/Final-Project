@@ -18,6 +18,8 @@ const castVote = asyncHandler(async (req, res) => {
     session.startTransaction();
 
     let voteDelta = 0;
+    let likesDelta = 0;
+    let dislikesDelta = 0;
     try {
         const existingVote = await Vote.findOne({ target_id, target_type, user_id }).session(session);
 
@@ -25,14 +27,26 @@ const castVote = asyncHandler(async (req, res) => {
             if (existingVote.value === voteValue) {
                 await existingVote.deleteOne({ session });
                 voteDelta = -voteValue;
-                res.status(200).json({ message: 'Vote removed.', delta: voteDelta });
+                if (voteValue === 1) {
+                    likesDelta = -1;
+                } else {
+                    dislikesDelta = -1;
+                }
+                res.status(200).json({ message: 'Vote removed.', delta: [ voteDelta, likesDelta, dislikesDelta ]});
             } else {
                 const oldVoteValue = existingVote.value;
                 existingVote.value = voteValue;
                 existingVote.jti = jti;
                 await existingVote.save({ session });
                 voteDelta = voteValue - oldVoteValue;
-                res.status(200).json({ message: 'Vote changed.', delta: voteDelta });
+                if (oldVoteValue === 1) {
+                    likesDelta = -1;
+                    dislikesDelta = 1;
+                } else {
+                    likesDelta = 1;
+                    dislikesDelta = -1;
+                }
+                res.status(200).json({ message: 'Vote changed.', delta: [ voteDelta, likesDelta, dislikesDelta ]});
             }
         } else {
             await Vote.create([{
@@ -43,7 +57,12 @@ const castVote = asyncHandler(async (req, res) => {
                 jti
             }], { session });
             voteDelta = voteValue;
-            res.status(201).json({ message: 'Vote cast.', delta: voteDelta });
+            if (voteValue === 1) {
+                likesDelta = 1;
+            } else {
+                dislikesDelta = 1;
+            }
+            res.status(201).json({ message: 'Vote cast.', delta: [ voteDelta, likesDelta, dislikesDelta ]});
         }
 
         await session.commitTransaction();
