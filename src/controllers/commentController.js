@@ -40,14 +40,23 @@ const createComment = asyncHandler(async (req, res) => {
 });
 
 const getComments = asyncHandler(async (req, res) => {
-    const { idea_id, page = 1, limit = 10 } = req.query;
+    const { idea_id, parent_id, page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    if (!idea_id) {
-        return res.status(400).json({ message: 'idea_id is required.' });
+    if (!idea_id && !parent_id) {
+        return res.status(400).json({ message: 'either pass "idea_id" for top level comments or "parent_id" for children comments (also called comment replies).' });
     }
 
-    const comments = await Comment.find({ idea_id, parent_id: null, is_deleted: false })
+    const query = { is_deleted: false };
+
+    if (parent_id) {
+        query.parent_id = parent_id;
+    } else {
+        query.idea_id = idea_id;
+        query.parent_id = null;
+    }
+
+    const comments = await Comment.find({ query })
         .sort({ created_at: -1 })
         .limit(parseInt(limit))
         .skip(skip)
